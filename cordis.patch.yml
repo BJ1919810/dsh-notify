@@ -1,0 +1,9 @@
+# Bundle patch for dsh-notify.
+#
+# This is what makes the package installable with `dsh plugin add`: the loader
+# reads `dsh.bundle.patch` from package.json and applies the entries below on
+# top of the active profile, so a user gets the plugin by installing it rather
+# than by hand-editing their cordis.yml.
+- insert:
+    - id: dsh-notify
+      name: dsh-notify

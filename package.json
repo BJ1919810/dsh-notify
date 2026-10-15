@@ -1,0 +1,78 @@
+{
+  "name": "dsh-notify",
+  "version": "0.1.0",
+  "description": "Windows notifications when a DeepSeek Harness task finishes — a native toast with the session title, the outcome and a summary of the reply.",
+  "description_zh": "DSH 任务完成时在 Windows 通知栏弹出原生通知，带上会话标题、结果状态与回复摘要。",
+  "type": "module",
+  "license": "MIT",
+  "keywords": [
+    "deepseek",
+    "harness",
+    "dsh",
+    "dsh-plugin",
+    "cordis",
+    "plugin",
+    "notification",
+    "toast",
+    "windows"
+  ],
+  "engines": {
+    "node": "^22.19.0 || >=24.0.0"
+  },
+  "main": "lib/index.js",
+  "exports": {
+    ".": {
+      "default": "./lib/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib",
+    "cordis.patch.yml",
+    "README.md",
+    "LICENSE",
+    "screenshots.json",
+    "assets"
+  ],
+  "scripts": {
+    "link:peers": "node scripts/link-peers.mjs",
+    "pretest": "node scripts/link-peers.mjs",
+    "test": "node --test \"test/*.test.js\"",
+    "smoke": "node scripts/smoke-toast.mjs",
+    "preview": "node scripts/preview-toast.mjs",
+    "check": "node --check lib/index.js && node --check lib/format.js && node --check lib/config.js && node --check lib/powershell-toast.js && node --test \"test/*.test.js\"",
+    "prepare-release": "node scripts/prepare-release.mjs",
+    "release:check": "node scripts/release-check.mjs",
+    "prepack": "node scripts/release-check.mjs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ztl001/dsh-notify.git"
+  },
+  "homepage": "https://github.com/ztl001/dsh-notify#readme",
+  "bugs": {
+    "url": "https://github.com/ztl001/dsh-notify/issues"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "compatibility": {
+      "dshReleases": {
+        "0.2.0-rc.2": "compatible"
+      }
+    }
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "^4.0.1",
+    "@deepseek-ai/schemastery": "^3.18.1"
+  },
+  "peerDependenciesMeta": {
+    "@deepseek-ai/cordis": {
+      "optional": true
+    },
+    "@deepseek-ai/schemastery": {
+      "optional": true
+    }
+  }
+}
