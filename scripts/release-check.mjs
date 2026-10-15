@@ -132,7 +132,15 @@ const UPSTREAM = new Set([
 // was already allowed, which is a false alarm that hides the real mistakes this
 // check exists to catch. Normalize before comparing, both sides.
 const canonical = url => url.replace(/^git\+/, '').replace(/\.git$/, '').replace(/\/+$/, '');
-const ALLOWED = new Set([canonical(slug), ...[...UPSTREAM].map(canonical)]);
+// The catalog's fork is a link this document is *supposed* to contain: the guide
+// tells the reader to push there. Derived from our own slug so it follows an
+// `--owner` change instead of naming an account.
+const forkOfCatalog = canonical(slug).replace(/\/([^/]+)$/, '/awesome-dsh-plugin');
+const ALLOWED = new Set([
+  canonical(slug),
+  forkOfCatalog,
+  ...[...UPSTREAM].map(canonical),
+]);
 for (const guide of ['release/HOW-TO-SUBMIT.md', 'README.md']) {
   const guidePath = join(root, guide);
   if (!existsSync(guidePath)) continue;
