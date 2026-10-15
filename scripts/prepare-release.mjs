@@ -11,6 +11,8 @@
  *   node scripts/prepare-release.mjs --owner <github-user-or-org> [--repo dsh-notify]
  */
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
+import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -72,15 +74,76 @@ process.stdout.write(`README.md      ${PLACEHOLDER} -> ${owner}\n`);
 const entryDir = join(root, 'release', 'awesome-dsh-plugin');
 mkdirSync(entryDir, { recursive: true });
 const entryName = `${owner}__${repo}.yml`;
+// The English description contains a colon followed by a space, and in YAML
+// that is a mapping separator at any depth: unquoted, `finishes: the session
+// title` turns the rest of the sentence into a nested map and the whole file
+// stops parsing. The catalog's own guide calls this out; every existing entry
+// with a colon in it is quoted. Quoting is always safe, so both descriptions get
+// single quotes (inside which the apostrophe-free text needs no escaping).
+const EN_DESCRIPTION =
+  'Windows toast notifications when a DeepSeek Harness task finishes: the session title, the outcome, and a summary of the final reply, sent once when the agent really stops rather than once per round of a running goal.';
+const ZH_DESCRIPTION =
+  'DSH 任务完成时，在 Windows 通知栏弹出原生通知，带上会话标题、结果状态与最后一条回复的摘要；在 agent 真正停下来时才发一条，而不是每跑一个回合就响一次。';
+
+// Refuse to write an entry that does not parse. A YAML syntax error here is
+// invisible until the pull request's CI runs, which is the worst place to find
+// out — the file looks fine on screen.
+if (EN_DESCRIPTION.includes("'") || ZH_DESCRIPTION.includes("'")) {
+  process.stderr.write('refusing: a description contains an apostrophe, which this quoting cannot carry\n');
+  process.exit(1);
+}
+
 const entry = [
   `url: ${base}`,
   `name: ${owner}/${repo}`,
   'category: notify',
   'description:',
-  '  en: Windows toast notifications when a DeepSeek Harness task finishes: the session title, the outcome, and a summary of the final reply, sent once when the agent really stops rather than once per round of a running goal.',
-  '  zh: DSH 任务完成时在 Windows 通知栏弹出原生通知，带上会话标题、结果状态与最后一条回复的摘要；在 agent 真正停下来时才发一条，而不是每跑一个回合就响一次。',
+  `  en: '${EN_DESCRIPTION}'`,
+  `  zh: '${ZH_DESCRIPTION}'`,
   '',
 ].join('\n');
+
+// Round-trip the entry through a real parser. A YAML syntax error here is
+// invisible until the catalog's CI runs, which is the worst place to find out —
+// the file looks fine on screen. `js-yaml` ships with the running DSH profile
+// rather than with this package, so no parser means a skip, not a failure.
+function loadYaml() {
+  const require = createRequire(import.meta.url);
+  for (const candidate of [
+    'js-yaml',
+    join(homedir(), '.dsh', 'profiles', 'desktop', 'node_modules', 'js-yaml'),
+  ]) {
+    try {
+      return require(candidate);
+    } catch {
+      // Try the next location.
+    }
+  }
+  return undefined;
+}
+
+const yaml = loadYaml();
+if (yaml === undefined) {
+  process.stdout.write('note  js-yaml not found; the entry was not round-tripped\n');
+} else {
+  let parsed;
+  try {
+    parsed = yaml.load(entry);
+  } catch (error) {
+    process.stderr.write(`refusing to write an unparseable entry: ${error.message}\n`);
+    process.exit(1);
+  }
+  // Read the values back out rather than trusting the string that was written:
+  // that is the whole point of the round trip.
+  const url = parsed?.url;
+  const descriptions = parsed?.description;
+  if (url !== base || typeof descriptions?.en !== 'string' || typeof descriptions?.zh !== 'string') {
+    process.stderr.write('refusing: the entry did not parse back to the intended values\n');
+    process.exit(1);
+  }
+  process.stdout.write('ok    the entry parses as YAML and keeps its values\n');
+}
+
 writeFileSync(join(entryDir, entryName), entry, 'utf8');
 process.stdout.write(`release/awesome-dsh-plugin/${entryName}\n`);
 
