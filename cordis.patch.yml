@@ -4,6 +4,13 @@
 # reads `dsh.bundle.patch` from package.json and applies the entries below on
 # top of the active profile, so a user gets the plugin by installing it rather
 # than by hand-editing their cordis.yml.
+#
+# YAML forbids tab characters in indentation. A tab here (written by an editor
+# that inserted one while this file was being edited) made the whole document
+# unparseable, the loader dropped the insert silently, and the plugin simply
+# never loaded — no error, no entry, nothing to see. Spaces only, from now on.
 - insert:
     - id: dsh-notify
       name: dsh-notify
+      config:
+        debug: true

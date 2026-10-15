@@ -57,6 +57,39 @@ if (bundle !== undefined) {
       nameLine === null || nameLine[1] === manifest.name,
       'the patched entry name matches the package name',
     );
+
+    // This file decides whether the plugin loads at all, and every way it can be
+    // wrong is silent: a tab in the indentation (YAML forbids them) or a key at
+    // the wrong depth makes the document unparseable, the loader drops the
+    // insert without a word, and the plugin simply never appears. No error, no
+    // entry, nothing to look at. Both of those shipped once and cost several
+    // restarts to find, so they are checked mechanically here.
+    if (ok(!/\t/.test(patch), 'cordis.patch.yml contains no tab characters (YAML forbids tab indentation)')) {
+      const lines = patch.split(/\r?\n/);
+      const insertAt = lines.findIndex(line => /^-\s*insert:\s*$/.test(line));
+      const entryAt = lines.findIndex((line, index) => index > insertAt && /^\s*-\s*id:\s*\S/.test(line));
+      if (ok(insertAt >= 0, 'cordis.patch.yml has a top-level insert list')) {
+        if (ok(entryAt > insertAt, 'the insert list contains an entry')) {
+          const entryIndent = lines[entryAt].match(/^\s*/)[0].length;
+          for (let index = entryAt + 1; index < lines.length; index += 1) {
+            const line = lines[index];
+            if (line.trim() === '' || line.trimStart().startsWith('#')) continue;
+            const indent = line.match(/^\s*/)[0].length;
+            // Back at or above the entry's own indent means the entry ended; the
+            // walk is over. Anything deeper belongs to this entry and must not
+            // start with a tab — already handled above, but the depth matters
+            // because `config:` with no children is a different document.
+            if (indent <= entryIndent) break;
+            if (/^\s*config:\s*$/.test(line)) {
+              const next = lines.slice(index + 1).find(l => l.trim() !== '' && !l.trimStart().startsWith('#'));
+              if (next !== undefined && next.match(/^\s*/)[0].length <= indent) {
+                problems.push('cordis.patch.yml: `config:` has no children (the keys after it are siblings, not settings)');
+              }
+            }
+          }
+        }
+      }
+    }
   }
 }
 
