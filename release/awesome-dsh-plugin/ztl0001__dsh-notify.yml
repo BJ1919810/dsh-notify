@@ -1,5 +1,5 @@
-url: https://github.com/ztl001/dsh-notify
-name: ztl001/dsh-notify
+url: https://github.com/ztl0001/dsh-notify
+name: ztl0001/dsh-notify
 category: notify
 description:
   en: Windows toast notifications when a DeepSeek Harness task finishes: the session title, the outcome, and a summary of the final reply, sent once when the agent really stops rather than once per round of a running goal.

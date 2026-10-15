@@ -5,8 +5,8 @@
 已经做完的：
 
 - `package.json` 已声明 `dsh.bundle` 并指向 `./cordis.patch.yml`——这是能被 `dsh plugin add` 安装的前提，也是投稿最常见的被拒原因（只声明 `dsh.client` 不行）
-- `package.json` 的 `repository` / `homepage` / `bugs` 已指向 `https://github.com/ztl001/dsh-notify`
-- 收录条目已生成：`release/awesome-dsh-plugin/ztl001__dsh-notify.yml`
+- `package.json` 的 `repository` / `homepage` / `bugs` 已指向 `https://github.com/ztl0001/dsh-notify`
+- 收录条目已生成：`release/awesome-dsh-plugin/ztl0001__dsh-notify.yml`
 - `screenshots.json` + `assets/screenshot-1.png`：市场详情页会展示的真实通知截图
 - `npm run release:check` 全部通过（等价于市场 CI 的机械检查）
 
@@ -16,7 +16,7 @@
 
 ```sh
 cd dsh-notify
-git remote add origin https://github.com/ztl001/dsh-notify.git
+git remote add origin https://github.com/ztl0001/dsh-notify.git
 git push -u origin main
 ```
 
@@ -29,7 +29,7 @@ git push -u origin main
 市场（Settings → 插件市场）的列表来自 [awesome-dsh-plugin](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin) 这个仓库。**收录 = 往它提一个 PR，只加一个文件**：
 
 1. fork `awesome-dsh-plugin/awesome-dsh-plugin`
-2. 新建文件 `data/plugins/ztl001__dsh-notify.yml`，内容就是本目录 `ztl001__dsh-notify.yml` 的内容
+2. 新建文件 `data/plugins/ztl0001__dsh-notify.yml`，内容就是本目录 `ztl0001__dsh-notify.yml` 的内容
 3. 提交 PR
 
 要点：
@@ -85,7 +85,13 @@ dsh plugin --profile desktop add <仓库地址或本地路径>
 powershell -ExecutionPolicy Bypass -File scripts/install-local.ps1
 ```
 
-**装完要重启 DSH**：profile 的 `cordis.patch.yml` 改动不会自动重载（这个 patch 层在启动时合成）。重启后随便跑一个任务，任务真正结束时会弹通知。
+**装完要重启 DSH**：profile 的 bundle/patch 层在启动时合成，不会自动重载。重启后随便跑一个任务，任务真正结束时会弹通知。
+
+> ⚠️ 别用「往 profile 的 `cordis.patch.yml` 里加一行 `- id: dsh-notify`」这种写法。
+> patch 层只能*按 id 覆盖已有条目*，插件还没加载时那一行没有目标，DSH 启动会直接
+> 失败（all-or-nothing，整个宿主起不来）。新插件必须先作为 bundle 出现在 profile
+> 的 `dsh.profile.bundles` 里，由加载器读它自己的 `dsh.bundle.patch`（`insert:` 行）
+> 插入条目——`install-local.ps1` 做的就是这件事。这个坑我第一次装的时候就踩了。
 
 撤销：
 

@@ -1,5 +1,7 @@
 # dsh-notify
 
+<https://github.com/ztl0001/dsh-notify>
+
 DSH 任务完成时，在 Windows 通知栏弹一条原生通知。
 
 你可以把 DSH 窗口最小化去干别的，不用一直盯着它——任务真的做完了，通知会告诉你。通知里带上**会话标题**、**结果状态**和**最后一条回复的摘要**：
@@ -95,6 +97,16 @@ node scripts/preview-toast.mjs   # 只弹一条，用来看真实排版
 ```
 
 `test/` 里没有任何一项会真的弹通知：`apply()` 的第三个参数是注入的传输层，测试传一个记录用的假实现。
+
+### 装进真实宿主
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/install-local.ps1
+# 重启 DSH，然后随便跑一个任务
+powershell -ExecutionPolicy Bypass -File scripts/uninstall-local.ps1   # 还原
+```
+
+**关键是「新插件必须先成为 bundle」**，这一条很容易踩错：profile 的 `cordis.patch.yml` 是*按 id 覆盖已有条目*的层，往里面写 `- id: 一个还没加载的插件` 只会留下一个指向不存在目标的 patch 行，DSH 启动时直接报错（而且是 all-or-nothing，整个宿主起不来）。让新插件进入加载器树的正确做法是把它加进 profile 的 `dsh.profile.bundles`，由加载器读它自己的 `dsh.bundle.patch`（`insert:` 行）来插入条目。`scripts/install-local.ps1` 做的就是这两件事。
 
 ## License
 

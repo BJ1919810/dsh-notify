@@ -47,11 +47,11 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/ztl001/dsh-notify.git"
+    "url": "git+https://github.com/ztl0001/dsh-notify.git"
   },
-  "homepage": "https://github.com/ztl001/dsh-notify#readme",
+  "homepage": "https://github.com/ztl0001/dsh-notify#readme",
   "bugs": {
-    "url": "https://github.com/ztl001/dsh-notify/issues"
+    "url": "https://github.com/ztl0001/dsh-notify/issues"
   },
   "dsh": {
     "bundle": {

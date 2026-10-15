@@ -77,13 +77,40 @@ if (typeof repositoryUrl === 'string') {
 if (readFileSync(join(root, 'README.md'), 'utf8').includes('OWNER')) {
   problems.push('README.md still contains the OWNER placeholder');
 }
+
+// The account name is repeated in four places — package.json, the catalog entry
+// filename, the entry's own `url`, and the submission guide's copy-pasteable
+// commands. Only the first is generated; the guide is prose, so a single wrong
+// digit there turns into a push against somebody else's repository. Comparing
+// all four against package.json is the cheapest way to catch that.
+const slug = typeof repositoryUrl === 'string' ? repositoryUrl.replace(/^git\+/, '').replace(/\.git$/, '') : '';
+for (const guide of ['release/HOW-TO-SUBMIT.md', 'README.md']) {
+  const guidePath = join(root, guide);
+  if (!existsSync(guidePath)) continue;
+  const text = readFileSync(guidePath, 'utf8');
+  const linked = text.match(/https:\/\/github\.com\/[A-Za-z0-9._-]+\/[A-Za-z0-9._-]+/g) ?? [];
+  const strangers = [...new Set(linked)].filter(url => url !== slug);
+  if (strangers.length > 0) {
+    problems.push(`${guide} links a different repository than package.json: ${strangers.join(', ')}`);
+  }
+}
+
 if (existsSync(join(root, 'release', 'awesome-dsh-plugin'))) {
   const entries = readdirSync(join(root, 'release', 'awesome-dsh-plugin'));
+  // `owner__repo.yml`, the name the catalog's CI expects.
+  const expectedEntry = `${slug.replace('https://github.com/', '').replace('/', '__')}.yml`;
   for (const entry of entries) {
     const text = readFileSync(join(root, 'release', 'awesome-dsh-plugin', entry), 'utf8');
     if (text.includes('OWNER')) problems.push(`release/awesome-dsh-plugin/${entry} still contains OWNER`);
     if (!text.includes('category: notify')) {
       note(`${entry}: the Notifications & Integrations category key is 'notify'`);
+    }
+    const entryUrl = text.match(/^url:\s*(\S+)\s*$/m)?.[1];
+    if (entryUrl !== undefined && entryUrl !== slug) {
+      problems.push(`${entry}: url is ${entryUrl}, but package.json says ${slug}`);
+    }
+    if (entry !== expectedEntry) {
+      problems.push(`${entry}: filename should be ${expectedEntry} to match package.json`);
     }
   }
 } else {
