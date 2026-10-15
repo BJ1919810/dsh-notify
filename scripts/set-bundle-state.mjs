@@ -27,6 +27,20 @@ import { copyFileSync, existsSync, lstatSync, readFileSync, rmSync, symlinkSync,
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 
+/**
+ * Read text without a byte-order mark.
+ *
+ * A BOM at the start of an imported JSON file makes  throw with
+ * 'Unexpected token', and this file is read from an editor as often as from this
+ * script. PowerShell's  writes one (5.1 always, 7
+ * sometimes), so a hand edit is enough to brick the host's boot. Stripping it on
+ * read is the defensive half; writing without one is the other half.
+ */
+function readText(path) {
+  const raw = readFileSync(path, 'utf8');
+  return raw.charCodeAt(0) === 0xfeff ? raw.slice(1) : raw;
+}
+
 const ACTIONS = new Set(['enable', 'disable']);
 
 function parseArgs(argv) {
@@ -111,7 +125,7 @@ if (!existsSync(manifestPath)) {
   process.exit(2);
 }
 
-const original = readFileSync(manifestPath, 'utf8');
+const original = readText(manifestPath);
 let profile;
 try {
   profile = JSON.parse(original);
@@ -205,7 +219,7 @@ try {
 
 const backupPath = `${manifestPath}.bak-${name.replace(/[^A-Za-z0-9]/g, '_')}`;
 copyFileSync(manifestPath, backupPath);
-writeFileSync(manifestPath, text, 'utf8');
+writeFileSync(manifestPath, text, { encoding: 'utf8' }); // no BOM: it breaks JSON.parse on import
 
 // --- 4. confirm what actually landed on disk -----------------------------
 const written = JSON.parse(readFileSync(manifestPath, 'utf8'));
