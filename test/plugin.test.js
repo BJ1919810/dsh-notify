@@ -93,6 +93,50 @@ function fakeHost({ title = '修复登录崩溃', summary = '改了三个文件�
 const tick = (ms = 0) => new Promise(resolve => setTimeout(resolve, ms));
 const settle = 5;
 
+test('the order of idle and turn end does not matter', async () => {
+  // The regression this pins down: the first released version scheduled the
+  // announcement from the `idle` transition and required `turn/end` to have
+  // arrived first. A host that reports idle *before* it commits the turn end
+  // therefore never scheduled anything — the notification silently never
+  // appeared, with no error and nothing to look at. Whichever arrives second
+  // must still produce exactly one notification.
+  for (const order of ['idle-first', 'turn-end-first']) {
+    const host = fakeHost();
+    const transport = recordingTransport();
+    apply(host, { settleDelayMs: settle }, transport);
+
+    host.status('running');
+    if (order === 'idle-first') {
+      host.status('idle');
+      host.turnEnd(7, { kind: 'completed' });
+    } else {
+      host.turnEnd(7, { kind: 'completed' });
+      host.status('idle');
+    }
+    await tick(settle + 25);
+
+    assert.equal(transport.shown.length, 1, `${order}: expected exactly one notification`);
+    assert.equal(transport.shown[0].title, '✅ 修复登录崩溃');
+    host.dispose();
+  }
+});
+
+test('a turn end is announced even when no idle transition is reported', async () => {
+  // Belt and braces for the same failure: a composition may not publish an idle
+  // transition for a session at all. The turn end is what defines the outcome,
+  // so it is what has to be able to carry the announcement.
+  const host = fakeHost();
+  const transport = recordingTransport();
+  apply(host, { settleDelayMs: settle }, transport);
+
+  host.turnEnd(7, { kind: 'completed' });
+  await tick(settle + 25);
+
+  assert.equal(transport.shown.length, 1);
+  assert.equal(transport.shown[0].title, '✅ 修复登录崩溃');
+  host.dispose();
+});
+
 test('one finished turn produces exactly one notification', async () => {
   const host = fakeHost();
   const transport = recordingTransport();

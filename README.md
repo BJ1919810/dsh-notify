@@ -60,6 +60,19 @@ dsh plugin --profile <你的 profile> add dsh-notify
 | `summaryLimit` | `220` | 正文最大字符数。 |
 | `sound` | `kind` | `kind`：按结果自动选（完成用 `Default`，出错用 `Reminder`）；`silent`：静音；也可以填具体的 WinRT 提示音名（`Reminder`／`IM`／`Mail`／`SMS`／`Alarm`…）。 |
 | `appId` | 空 | 可选的 AppUserModelID（例如某个应用快捷方式的 AUMID）。留空时按 `DSH_APP_USER_MODEL_ID` 环境变量 → Windows PowerShell 的顺序回退。 |
+| `debug` | `false` | 把每一次决策写进宿主日志（收到哪个回合结束、为什么没通知）。排查「该弹没弹」时打开它。 |
+
+### 触发点为什么是 `turn/end` 而不是 `idle`
+
+第一版把延迟调度放在 `agent/status → idle` 上，并要求 `turn/end` 已经先到。这在真实宿主里静默失效了：宿主**先报 idle、后提交 turn end**，于是 idle 那一刻还没有待发内容，通知永远不会被安排——没有报错，也没有任何东西可看。
+
+现在**调度只发生在 `turn/end`**（它才是定义结果的那个事件），`idle` 只做过滤：
+
+- `turn/end` → 记录结果 + 安排延迟通知
+- `running` → 取消待发通知（新的工作取代了它，任务还在跑就不能报「已完成」）
+- 延迟窗口内又来了 `turn/end` → 重新计时（把连续回合合并成一条）
+
+这样**两个事件的先后顺序不再影响正确性**，`test/plugin.test.js` 里有两条测试专门钉住这件事（含「宿主从不报 idle」的情形）。
 
 ## 环境要求
 
