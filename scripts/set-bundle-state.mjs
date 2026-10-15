@@ -23,7 +23,7 @@
  * `scripts/set-bundle-state.cmd` wraps that for convenience.
  */
 import { execFileSync } from 'node:child_process';
-import { copyFileSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, lstatSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 
@@ -130,6 +130,45 @@ if (!Array.isArray(bundles)) {
 }
 
 const enabled = bundles.includes(name);
+const linkSource = typeof args.link === 'string' && args.link !== '' ? resolve(args.link) : '';
+
+// --- 2b. make the package resolvable -------------------------------------
+// A name in `dsh.profile.bundles` is a promise that the loader can `import` it.
+// Listing it without a resolvable package in the profile's node_modules makes
+// the boot fail the same way a bad patch row does, so when this is told where
+// the package lives it has to do both halves.
+//
+// A local plugin needs `--link <dir>`; a plugin installed from npm or the market
+// is already in node_modules and needs nothing.
+if (linkSource !== '') {
+  if (action !== 'enable') {
+    process.stdout.write('note  --link is ignored when disabling\n');
+  } else if (!existsSync(join(linkSource, 'package.json'))) {
+    process.stderr.write(`refusing: --link ${linkSource} has no package.json\n`);
+    process.exit(1);
+  } else {
+    const linkPath = join(profileDir, 'node_modules', name);
+    let existing = null;
+    try {
+      existing = lstatSync(linkPath);
+    } catch {
+      existing = null;
+    }
+    if (existing !== null && existing.isDirectory() && !existing.isSymbolicLink()) {
+      // A real directory could be a dependency someone meant to keep, so it is
+      // never deleted automatically.
+      process.stderr.write(
+        `refusing to replace ${linkPath}: it is a real directory, not a link.\n` +
+          'Remove it yourself if it is stale, then run this again.\n',
+      );
+      process.exit(1);
+    }
+    if (existing !== null) rmSync(linkPath, { recursive: true, force: true });
+    symlinkSync(linkSource, linkPath, process.platform === 'win32' ? 'junction' : 'dir');
+    process.stdout.write(`ok    linked node_modules/${name} -> ${linkSource}\n`);
+  }
+}
+
 if (enabled === (action === 'enable')) {
   process.stdout.write(`ok    "${name}" is already ${action}d; nothing to do\n`);
   process.exit(0);

@@ -53,7 +53,11 @@ echo   ================================
 echo   profile: %PROFILE%
 echo.
 
-"%NODE%" "%SCRIPT%" --name dsh-notify --action %ACTION% --profile "%PROFILE%"
+rem --link: a name in dsh.profile.bundles is a promise that the loader can
+rem import it, so the package also has to be resolvable from the profile. The
+rem first version of this only wrote the bundles row, which left the boot
+rem unable to resolve the plugin.
+"%NODE%" "%SCRIPT%" --name dsh-notify --action %ACTION% --profile "%PROFILE%" --link "%HERE%."
 set "CODE=%ERRORLEVEL%"
 
 echo.
