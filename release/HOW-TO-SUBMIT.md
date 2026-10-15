@@ -16,7 +16,7 @@
 
 ```sh
 cd dsh-notify
-git remote add origin https://github.com/ztl0001/dsh-notify.git
+git remote add origin https://github.com/ztl0001/dsh-notify
 git push -u origin main
 ```
 
