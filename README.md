@@ -134,6 +134,44 @@ scripts\set-bundle-state.cmd --name dsh-notify --action enable
 - **新插件必须先成为 bundle。** profile 的 `cordis.patch.yml` 是*按 id 覆盖已有条目*的层，往里面写 `- id: 一个还没加载的插件` 只会留下一个指向不存在目标的 patch 行，而 DSH 的启动是 all-or-nothing，整个宿主起不来。正确做法是加进 profile 的 `dsh.profile.bundles`，由加载器读该包自己的 `dsh.bundle.patch`（`insert:` 行）插入条目。
 - **别用 PowerShell 改这个 JSON。** 早期版本用 PowerShell 写，在 Windows PowerShell 5.1 上正常，在 PowerShell 7 上 `ConvertFrom-Json`/`ConvertTo-Json` 往返会产出带尾随逗号的 JSON，DSH 直接拒绝启动（`Unexpected token ', {'`）。现在这段逻辑由 `set-bundle-state.mjs` 用 Node 的 JSON 实现完成——一份实现、处处相同，且写入前会重新解析确认合法。旧的 `.ps1` 保留仅为存档，**不要再使用**。
 
+## 排查：通知不出现
+
+按这个顺序查。**先确认「加载了没有」，再怀疑逻辑**——这两类故障的表象完全一样（什么都不发生），但排查方向相反：
+
+1. **插件有没有进入加载器树**（最关键，也最容易忽略）
+   在 `list_plugins` 里找 `include:dsh-notify`：
+
+   | 看到什么 | 含义 |
+   | --- | --- |
+   | **条目不存在** | `cordis.patch.yml` 没解析成功（见第 2 条），插件根本没加载 |
+   | **`fiberPhase: "pending"`** | 在等某个服务——检查是否声明了不需要的 `inject` |
+   | **`fiberPhase: "active"`** | 插件在运行，这才轮到看逻辑 |
+
+   ```sh
+   node scripts/verify-bundle-resolves.mjs --profile ~/.dsh/profiles/desktop
+   ```
+
+2. **`cordis.patch.yml` 的两个静默陷阱**——都会让插件完全不加载，且不报任何错
+   - **缩进里有 tab**：YAML 禁止 tab，整份文档解析失败，加载器一声不响地丢掉 `insert`
+   - **`config:` 没有子项**：把配置键写成了 `config` 的同级键而不是子键
+
+   两条都由 `node scripts/release-check.mjs` 机械校验（含反向验证）。
+
+3. **打开 `debug`**，把每一次决策写进宿主日志：
+
+   ```yaml
+   - id: dsh-notify
+     name: dsh-notify
+     config:
+       debug: true      # 8 个空格，且必须是空格
+   ```
+
+   日志里会有 `dsh-notify:` 开头的行：收到哪个回合结束、为什么发／不发。
+
+4. **系统层面**：专注助手（Focus Assist）／勿扰模式打开，或系统通知被整体关闭。这类情况下 `showToast` 会成功返回，但通知不显示。
+
+最容易走的弯路：因为「没有通知」就去怀疑事件触发逻辑，而真正的原因在加载阶段。**先看 `fiberPhase`，能省掉大量猜测。**
+
 ## License
 
 MIT
