@@ -9,6 +9,11 @@
 # that inserted one while this file was being edited) made the whole document
 # unparseable, the loader dropped the insert silently, and the plugin simply
 # never loaded — no error, no entry, nothing to see. Spaces only, from now on.
+#
+# Two ways this file has silently failed to load the plugin, both fixed and both
+# now checked by scripts/release-check.mjs:
+#   1. a tab character in the indentation
+#   2. `debug` written as a sibling of `config:` instead of a child of it
 - insert:
     - id: dsh-notify
       name: dsh-notify
