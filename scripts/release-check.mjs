@@ -84,14 +84,23 @@ if (readFileSync(join(root, 'README.md'), 'utf8').includes('OWNER')) {
 // digit there turns into a push against somebody else's repository. Comparing
 // all four against package.json is the cheapest way to catch that.
 const slug = typeof repositoryUrl === 'string' ? repositoryUrl.replace(/^git\+/, '').replace(/\.git$/, '') : '';
+// Repositories these documents are *supposed* to reference: the catalog they are
+// submitted to and the harness whose API they depend on. Anything else is a
+// mistake, but a legitimate upstream link is not.
+const UPSTREAM = new Set([
+  'https://github.com/awesome-dsh-plugin/awesome-dsh-plugin',
+  'https://github.com/awesome-dsh-plugin/dsh-find-plugin',
+  'https://github.com/deepseek-ai/deepseek-harness',
+  'https://github.com/dsh-market/dsh-market',
+]);
 for (const guide of ['release/HOW-TO-SUBMIT.md', 'README.md']) {
   const guidePath = join(root, guide);
   if (!existsSync(guidePath)) continue;
   const text = readFileSync(guidePath, 'utf8');
   const linked = text.match(/https:\/\/github\.com\/[A-Za-z0-9._-]+\/[A-Za-z0-9._-]+/g) ?? [];
-  const strangers = [...new Set(linked)].filter(url => url !== slug);
+  const strangers = [...new Set(linked)].filter(url => url !== slug && !UPSTREAM.has(url));
   if (strangers.length > 0) {
-    problems.push(`${guide} links a different repository than package.json: ${strangers.join(', ')}`);
+    problems.push(`${guide} links a repository that is neither ours nor a known upstream: ${strangers.join(', ')}`);
   }
 }
 
