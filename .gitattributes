@@ -1,0 +1,8 @@
+# 仓库里所有文本文件都用 LF。
+# Windows 上 git 默认的 autocrlf 会把 .ps1 / .js 换成 CRLF，
+# 那会让这两类文件在别的平台看起来整文件被改过。
+* text=auto eol=lf
+
+*.png binary
+*.ico binary
+*.tgz binary
