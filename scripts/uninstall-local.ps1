@@ -1,10 +1,21 @@
-﻿# 还原 install-local.ps1 对 desktop profile 做的一切改动。
+# ⛔ 已废弃：用 set-bundle-state.mjs --action disable 代替。
+# 与 install-local.ps1 同样的原因：PowerShell 7 下的 JSON 往返会产出非法 JSON。
+# 保留仅为存档，下面有硬性拦截。
+#
+# 还原 install-local.ps1 对 desktop profile 做的一切改动。
 #
 # 两件事都要做：删掉 node_modules 里的 junction，并把包名从
 # `dsh.profile.bundles` 里移除。只删一个是不够的——bundles 里留着一个解析
 # 不到的包名，DSH 启动时同样会报错。
 
 $ErrorActionPreference = 'Stop'
+
+if ($PSVersionTable.PSVersion.Major -ge 7) {
+  Write-Host "❌ 本脚本在 PowerShell $($PSVersionTable.PSVersion) 下会写出非法 JSON（尾随逗号），" -ForegroundColor Red
+  Write-Host "   请改用：" -ForegroundColor Red
+  Write-Host "   node scripts/set-bundle-state.mjs --name dsh-notify --action disable" -ForegroundColor Yellow
+  exit 1
+}
 
 $profileDir = "C:\Users\Administrator\.dsh\profiles\desktop"
 $target     = Join-Path $profileDir "node_modules\dsh-notify"

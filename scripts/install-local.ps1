@@ -1,4 +1,14 @@
-﻿# 把本地 dsh-notify 装进 desktop profile，用于真实环境验证。
+# ⛔ 已废弃：用 set-bundle-state.mjs（或 set-bundle-state.cmd）代替。
+#
+# 这个脚本用 PowerShell 的 ConvertTo-Json 写 profile 的 package.json。它在
+# Windows PowerShell 5.1 上正常，但在 PowerShell 7 上会产出带尾随逗号的 JSON，
+# 而那不是合法 JSON——DSH 启动时直接拒绝并报 `Unexpected token ', {'`。这个
+# 缺陷已经在真实环境里造成过一次启动失败，所以下面加了硬性拦截：在 PowerShell 7
+# 上直接拒绝运行。保留这个文件只是为了留下记录，正确做法是：
+#
+#   node scripts/set-bundle-state.mjs --name dsh-notify --action enable
+#
+# 把本地 dsh-notify 装进 desktop profile，用于真实环境验证。
 #
 # 机制（这一步我第一次做错了，值得写清楚）：
 #   profile 的 cordis.patch.yml 是「按 id 覆盖已有条目」的层。往里面写
@@ -13,6 +23,14 @@
 # `dsh.profile.bundles`。
 
 $ErrorActionPreference = 'Stop'
+
+# 硬性拦截：PowerShell 7 下这个脚本会写出非法 JSON
+if ($PSVersionTable.PSVersion.Major -ge 7) {
+  Write-Host "❌ 本脚本在 PowerShell $($PSVersionTable.PSVersion) 下会写出非法 JSON（尾随逗号），" -ForegroundColor Red
+  Write-Host "   DSH 会因此无法启动。请改用：" -ForegroundColor Red
+  Write-Host "   node scripts/set-bundle-state.mjs --name dsh-notify --action enable" -ForegroundColor Yellow
+  exit 1
+}
 
 $profileDir = "C:\Users\Administrator\.dsh\profiles\desktop"
 $pluginDir  = "C:\Users\Administrator\Documents\deepseek-harness\default-workspace\dsh-notify"

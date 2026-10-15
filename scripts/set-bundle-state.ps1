@@ -1,6 +1,16 @@
-﻿# 在 desktop profile 的 dsh.profile.bundles 里启用或停用某个 bundle。
+# ⛔ 已废弃：用 set-bundle-state.mjs（或 set-bundle-state.cmd）代替。
 #
-# 为什么需要这个脚本、而不是手改 JSON：
+# 这个 PowerShell 版本在 Windows PowerShell 5.1 上工作正常，但在 PowerShell 7
+# 上它的 ConvertFrom-Json/ConvertTo-Json 往返会生成带尾随逗号的 JSON——那不是
+# 合法 JSON，DSH 启动时会直接拒绝并报 `Unexpected token ', {'`。这个脚本已经
+# 在真实环境里造成过一次启动失败，所以保留它只是为了留下记录，不要再使用。
+#
+# .mjs 版本用 Node 自己的 JSON 实现改写这段逻辑：只有一份实现、每台机器上都一样，
+# 并且写入前会把结果重新解析一遍确认合法。
+#
+# 在 desktop profile 的 dsh.profile.bundles 里启用或停用某个 bundle。
+#
+# 为什么需要脚本、而不是手改 JSON：
 #   运行中的 DSH 宿主会用内存里的组合状态回写 profile 的 package.json（实测：
 #   写入后几秒到几十秒内被覆盖回原样）。它不会因此重载你的改动，只是把它抹掉。
 #   所以运行期间做这类编辑是徒劳的——必须在 DSH 完全退出后改，再启动才生效。
@@ -8,9 +18,8 @@
 #   另一个坑：这个文件不是「改了就热生效」的层。bundles 决定加载器在启动时
 #   合成哪些包，改动只在启动时读取。
 #
-# 用法：
+# 用法（已废弃，仅存档）：
 #   powershell -ExecutionPolicy Bypass -File set-bundle-state.ps1 -Name dsh-custom-instructions -Action enable
-#   powershell -ExecutionPolicy Bypass -File set-bundle-state.ps1 -Name dsh-notify -Action disable
 
 param(
   [Parameter(Mandatory = $true)][string]$Name,
@@ -19,6 +28,13 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+
+# 硬性拦截：PowerShell 7 下 ConvertTo-Json 会写出尾随逗号，DSH 直接拒绝启动
+if ($PSVersionTable.PSVersion.Major -ge 7) {
+  Write-Host "❌ 本脚本在 PowerShell $($PSVersionTable.PSVersion) 下会写出非法 JSON（尾随逗号），" -ForegroundColor Red
+  Write-Host "   请改用：node scripts/set-bundle-state.mjs --name <bundle> --action enable|disable" -ForegroundColor Yellow
+  exit 1
+}
 
 # --- 1. DSH 必须已经退出，否则改动会被回写 ---------------------------------
 $running = @()

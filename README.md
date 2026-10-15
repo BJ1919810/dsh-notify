@@ -100,13 +100,26 @@ node scripts/preview-toast.mjs   # 只弹一条，用来看真实排版
 
 ### 装进真实宿主
 
-```powershell
-powershell -ExecutionPolicy Bypass -File scripts/install-local.ps1
-# 重启 DSH，然后随便跑一个任务
-powershell -ExecutionPolicy Bypass -File scripts/uninstall-local.ps1   # 还原
+```sh
+# 1) 完全退出 DSH（不是关窗口）
+# 2) 让插件作为 bundle 进入 profile
+node scripts/set-bundle-state.mjs --name dsh-notify --action enable
+# 3) 启动 DSH，随便跑一个任务
 ```
 
-**关键是「新插件必须先成为 bundle」**，这一条很容易踩错：profile 的 `cordis.patch.yml` 是*按 id 覆盖已有条目*的层，往里面写 `- id: 一个还没加载的插件` 只会留下一个指向不存在目标的 patch 行，DSH 启动时直接报错（而且是 all-or-nothing，整个宿主起不来）。让新插件进入加载器树的正确做法是把它加进 profile 的 `dsh.profile.bundles`，由加载器读它自己的 `dsh.bundle.patch`（`insert:` 行）来插入条目。`scripts/install-local.ps1` 做的就是这两件事。
+Windows 上没有 `node` 在 PATH 时用包装脚本（它会自己找 DSH 自带的那份）：
+
+```bat
+scripts\set-bundle-state.cmd --name dsh-notify --action enable
+```
+
+撤销就是同一条命令加 `--action disable`。
+
+三个必须知道的约束，都是踩过的：
+
+- **运行中的宿主会回写配置。** 实测：写入后 20 多秒被内存状态覆盖回原样——先「看起来成功」，再静默失效。所以脚本会**先检测 DSH 是否在跑并直接拒绝**，别绕过它。
+- **新插件必须先成为 bundle。** profile 的 `cordis.patch.yml` 是*按 id 覆盖已有条目*的层，往里面写 `- id: 一个还没加载的插件` 只会留下一个指向不存在目标的 patch 行，而 DSH 的启动是 all-or-nothing，整个宿主起不来。正确做法是加进 profile 的 `dsh.profile.bundles`，由加载器读该包自己的 `dsh.bundle.patch`（`insert:` 行）插入条目。
+- **别用 PowerShell 改这个 JSON。** 早期版本用 PowerShell 写，在 Windows PowerShell 5.1 上正常，在 PowerShell 7 上 `ConvertFrom-Json`/`ConvertTo-Json` 往返会产出带尾随逗号的 JSON，DSH 直接拒绝启动（`Unexpected token ', {'`）。现在这段逻辑由 `set-bundle-state.mjs` 用 Node 的 JSON 实现完成——一份实现、处处相同，且写入前会重新解析确认合法。旧的 `.ps1` 保留仅为存档，**不要再使用**。
 
 ## License
 

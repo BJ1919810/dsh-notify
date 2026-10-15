@@ -79,22 +79,34 @@ npm test                  # 33 项
 dsh plugin --profile desktop add <仓库地址或本地路径>
 ```
 
-或者用本仓库自带的手装脚本（会先备份 profile 配置）：
+或者用本仓库自带的手装脚本：
 
-```powershell
-powershell -ExecutionPolicy Bypass -File scripts/install-local.ps1
+```sh
+# 1) 完全退出 DSH（关窗口不算，要退出应用）
+# 2) 把这个包作为 bundle 加进 profile
+node scripts/set-bundle-state.mjs --name dsh-notify --action enable
+# Windows 上没有 node 在 PATH 时：scripts\set-bundle-state.cmd --name dsh-notify --action enable
+# 3) 启动 DSH，随便跑一个任务；任务真正结束时会弹通知
 ```
 
-**装完要重启 DSH**：profile 的 bundle/patch 层在启动时合成，不会自动重载。重启后随便跑一个任务，任务真正结束时会弹通知。
+**装完必须重启 DSH**：bundle/patch 层只在启动时合成，不会热生效。
 
-> ⚠️ 别用「往 profile 的 `cordis.patch.yml` 里加一行 `- id: dsh-notify`」这种写法。
-> patch 层只能*按 id 覆盖已有条目*，插件还没加载时那一行没有目标，DSH 启动会直接
-> 失败（all-or-nothing，整个宿主起不来）。新插件必须先作为 bundle 出现在 profile
-> 的 `dsh.profile.bundles` 里，由加载器读它自己的 `dsh.bundle.patch`（`insert:` 行）
-> 插入条目——`install-local.ps1` 做的就是这件事。这个坑我第一次装的时候就踩了。
+> ⚠️ 三个踩过的坑，别再踩一次：
+>
+> 1. **别用「往 profile 的 `cordis.patch.yml` 里加一行 `- id: dsh-notify`」这种写法。**
+>    patch 层只能*按 id 覆盖已有条目*，插件还没加载时那一行没有目标，DSH 启动直接
+>    失败（all-or-nothing，整个宿主起不来）。新插件必须先作为 bundle 出现在
+>    profile 的 `dsh.profile.bundles` 里。
+> 2. **改 profile 配置前必须完全退出 DSH。** 运行中的宿主会用内存状态回写
+>    `package.json`——实测写入后 20 多秒被覆盖回原样，先「看起来成功」再静默失效。
+>    `set-bundle-state.mjs` 会先检测并拒绝，别绕过它。
+> 3. **别用 PowerShell 改这些 JSON。** 早期版本用 PowerShell 写，在 Windows
+>    PowerShell 5.1 上没问题，在 PowerShell 7 上 `ConvertFrom-Json`/`ConvertTo-Json`
+>    往返会产出带尾随逗号的 JSON，DSH 直接拒绝启动（`Unexpected token ', {'`）。
+>    `scripts/*.ps1` 里那几个只是存档，**不要再用**。
 
 撤销：
 
-```powershell
-powershell -ExecutionPolicy Bypass -File scripts/uninstall-local.ps1
+```sh
+node scripts/set-bundle-state.mjs --name dsh-notify --action disable
 ```
