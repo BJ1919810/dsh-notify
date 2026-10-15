@@ -26,18 +26,63 @@ git push -u origin main
 
 ## 二、投稿到插件市场
 
-市场（Settings → 插件市场）的列表来自 [awesome-dsh-plugin](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin) 这个仓库。**收录 = 往它提一个 PR，只加一个文件**：
+市场（Settings → 插件市场）的列表来自 [awesome-dsh-plugin](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin) 这个仓库。**收录 = 往它提一个 PR，只新增一个文件**。
 
-1. fork `awesome-dsh-plugin/awesome-dsh-plugin`
-2. 新建文件 `data/plugins/ztl0001__dsh-notify.yml`，内容就是本目录 `ztl0001__dsh-notify.yml` 的内容
-3. 提交 PR
+### 实测可行的做法：命令行 + 一个链接（推荐）
 
-要点：
+网页那套**在这个环境里真的走不通**：Fork 按钮点了没反应；而且从上游仓库点 New file 会落到
+上游，于是报「There isn't anything to compare」。下面这套是**实际跑通过**的——
+dsh-notify 的 PR #7482 就是这么提交的：
+
+```sh
+# 1. 把上游克隆到临时目录
+git clone --depth 1 https://github.com/awesome-dsh-plugin/awesome-dsh-plugin.git /tmp/pr
+cd /tmp/pr
+
+# 2. 建分支，把条目文件放进去（文件名见下）
+git checkout -b add-dsh-notify
+mkdir -p data/plugins
+cp <本仓库路径>/release/awesome-dsh-plugin/ztl0001__dsh-notify.yml data/plugins/
+git add data/plugins/ztl0001__dsh-notify.yml
+git commit -m "Add dsh-notify"
+
+# 3. 推到你的 fork（GitHub 会给出去创建 PR 的链接）
+git remote add fork https://github.com/ztl0001/awesome-dsh-plugin.git
+git push -u fork add-dsh-notify
+```
+
+最后一步只能在网页上完成，用这个链接（`git push` 的输出里 GitHub 自己也会打印它）：
+
+```
+https://github.com/awesome-dsh-plugin/awesome-dsh-plugin/compare/main...ztl0001:add-dsh-notify?expand=1
+```
+
+打开后点两次绿色按钮即可。
+
+> ⚠️ **`?expand=1` 不能省。** 少了它会落到上游仓库的对比页，显示
+> 「There isn't anything to compare」——因为分支在你的 fork 里，上游看不到。
+
+### 如果一定要走纯网页
+
+只有一条路是稳的：**直接打开 fork 专用页**
+
+```
+https://github.com/awesome-dsh-plugin/awesome-dsh-plugin/fork
+```
+
+（比在仓库页里找按钮稳）。fork 成功后再**在你自己 fork 的仓库页面**点
+`Add file` → `Create new file`，路径填 `data/plugins/ztl0001__dsh-notify.yml`。
+
+### 要点
 
 - **不要手改它的 README**，那两个 README 是从 `data/plugins/*.yml` 生成的
 - 一个 PR 最多加 3 条
-- 仓库必须**建满 1 天**，CI 会自动检查。今天建的会被打回，明天再提即可
+- 仓库必须**建满 1 天**，CI 会自动检查。今天建的会被打回——**这是唯一「时间自愈」的失败**：
+  仓库里的 `regate.yml` 每 6 小时自动重跑一次检查，到点就绿。**不要**重开 PR、不要 push、
+  不要关闭重开（它的报错原文就是这么说的）
 - CI 会重新拉取你仓库的 `package.json` 检查 `dsh.bundle`，并重新生成 README
+- 描述里若有 **`冒号+空格`**，YAML 必须加引号（`en: 'Foo: bar.'`），否则整个文件解析失败。
+  `prepare-release.mjs` 现在会强制过一遍解析器，不允许写出坏文件
 
 ## 三、发布到 npm（可选，但推荐）
 
