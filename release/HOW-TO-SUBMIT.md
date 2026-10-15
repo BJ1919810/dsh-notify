@@ -64,7 +64,7 @@ git push -u origin main
 ```sh
 cd dsh-notify
 npm run release:check     # 机械检查
-npm test                  # 33 项
+npm test                  # 36 项
 ```
 
 然后等一天再提 PR（仓库年龄门槛）。

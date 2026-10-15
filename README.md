@@ -104,7 +104,7 @@ dsh plugin --profile <你的 profile> add dsh-notify
 
 ```sh
 npm run link:peers   # 把宿主正在用的 schemastery 链到 node_modules（插件不 import cordis）
-npm test             # 33 项：决策规则 + 事件接线（用注入的假传输，不会真弹通知）
+npm test             # 36 项：决策规则 + 事件接线（用注入的假传输，不会真弹通知）
 npm run smoke        # 需要真实桌面：校验 Config schema，然后真弹一条通知
 node scripts/preview-toast.mjs   # 只弹一条，用来看真实排版
 ```
