@@ -118,7 +118,7 @@ DSH 里**「回合结束」不等于「任务完成」**。所以：
 
 ### 2.3 已验证的内容
 
-- **33 项测试全过**：`node --test "test/*.test.js"`。覆盖 goal 跑 5 轮只响 1 次、
+- **36 项测试全过**：`node --test "test/*.test.js"`。覆盖 goal 跑 5 轮只响 1 次、
   紧接着继续的回合不重复通知、用户自己取消不响、子代理静默、摘要读失败降级等。
   测试通过 `apply(ctx, config, transport)` 的**第三个参数注入假传输**，所以
   **不会真弹通知**。
@@ -259,7 +259,7 @@ cosmokit 的 `updateVolatile(target, source)` **原地更新**，所以闭包持
 ## 七、给那个会话的建议
 
 1. **先跑一遍自检**确认基线没被破坏：
-   `node scripts/link-peers.mjs && node --test "test/*.test.js"`（应 33 项全过）
+   `node scripts/link-peers.mjs && node --test "test/*.test.js"`（应 36 项全过）
 2. **优先做 5.1 的真实加载验证**——这是唯一还空着的一环，也是插件能不能算「完成」的关键
 3. **改任何 profile 配置之前先完全退出 DSH**，用 `set-bundle-state.mjs`，不要手写 JSON、不要用 PowerShell
 4. 上架那部分等 5.1 通过再做，因为市场 CI 会读你的仓库并要求「像描述说的那样工作」
