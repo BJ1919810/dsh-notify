@@ -17,15 +17,44 @@
 
 | 部分 | 状态 |
 | --- | --- |
-| 插件本体 | ✅ 完成（4 个模块 + 33 项测试 + 真机 toast 冒烟） |
+| 插件本体 | ✅ 完成（4 个模块 + 36 项测试 + 真机 toast 冒烟） |
+| **真实宿主端到端** | ✅ **已验证**——`fiberPhase: active`，真实通知已弹出（见 `assets/screenshot-notification.png`） |
 | 上架材料 | ✅ 齐备（`dsh.bundle` 声明、收录条目、`release:check` 全绿） |
-| 文档 | ✅ README（中文）+ `release/HOW-TO-SUBMIT.md`（操作清单） |
-| git | ✅ 已提交 5 次，工作区干净 |
-| **真实宿主加载** | ❌ **还没做过**——这是唯一未验证的环节 |
-| 上架（推 GitHub / 提 PR / 发 npm） | ❌ 未做，需要用户的账号，本机无凭据 |
+| 文档 | ✅ README（含排查顺序）+ `release/HOW-TO-SUBMIT.md`（操作清单） |
+| git | ✅ 已提交，工作区干净 |
+| 上架（推 GitHub / 提 PR / 发 npm） | ❌ 未做，需要用户自己的账号，本机无凭据 |
 
-**下一步就是「在真实 DSH 里装一次、看任务结束时是否真弹通知」。** 安装路径已经
-踩通（见第四节），一条命令即可。
+**剩下的只有上架动作**（见 5.2）。
+
+### 端到端确认的证据链
+
+| 环节 | 证据 |
+| --- | --- |
+| 插件进入加载器树 | `list_plugins` → `include:dsh-notify`，`fiberPhase: "active"` |
+| 宿主加载了模块 | 源文件 atime = 启动后约 3 秒 |
+| `apply()` 注册了监听器 | 由「真实通知弹出」反证 |
+| 传输层被调用 | 回合结束时刻出现 `powershell.exe` 进程 |
+| 通知真的显示 | 用户在通知中心看到：标题=会话标题、正文=回复摘要 |
+
+### 加载阶段踩过的两个坑（都会让插件完全不加载、且不报任何错）
+
+这两个坑花了好几轮才定位，因为它们的表象和「触发逻辑写错」完全一样——什么都不发生：
+
+1. **`cordis.patch.yml` 缩进里有 tab。** YAML 禁止 tab，整份文档解析失败，加载器**静默丢弃** `insert` 块，插件从未进入加载器树。诊断分水岭是 `list_plugins`：当时 `include:dsh-custom-instructions` 在、`include:dsh-notify` **不在**。
+2. **声明了不需要的 `inject`。** 声明 injection 就是一次「等待」（Cordis hold 住插件直到该服务就绪），于是 `fiberPhase` 停在 `"pending"`。契约里可选依赖的正确形式是 `ctx.get(...)` + undefined 检查，**不声明 inject**。
+
+**这两个坑现在都由 `scripts/release-check.mjs` 机械校验**，并做过反向验证（把 tab 或错误的 `config` 层级放回去，自检会失败）。
+
+**最重要的教训（已写进 README 排查章节）**：先确认「加载了没有」，再怀疑逻辑。
+
+```
+list_plugins → include:dsh-notify → fiberPhase
+   条目不存在 → cordis.patch.yml 没解析成功（tab / config 无子项）
+   pending    → 在等服务（不该声明的 inject）
+   active     → 插件在跑，这时才轮到看事件逻辑
+```
+
+当时的弯路：因为「没有通知」就一头扎进事件触发逻辑（还为此改了一版顺序无关的实现），而真正的故障在加载阶段。那版重构本身是对的、也保留了，但它**不是**症结所在。
 
 ---
 
