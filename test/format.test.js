@@ -69,6 +69,26 @@ test('condense flattens Markdown into a single readable line', () => {
   assert.equal(line.includes('见 说明。'), true);
 });
 
+test('condense dissolves a Markdown table instead of showing its syntax', () => {
+  // Observed in a real notification: a summary that ended with a table produced
+  // a toast reading like `| 环节 | 证据 | | --- | --- |`. The model reaches for a
+  // table exactly when summarising, so the text has to survive without the pipes.
+  const markdown = [
+    '全部打通了：',
+    '',
+    '| 环节 | 证据 |',
+    '| --- | :--: |',
+    '| 插件加载 | active |',
+    '| 传输层 | 已调用 |',
+  ].join('\n');
+  const line = condense(markdown);
+  assert.equal(line.includes('|'), false, 'no cell dividers left');
+  assert.equal(line.includes('---'), false, 'no alignment row left');
+  assert.equal(line.includes('环节'), true);
+  assert.equal(line.includes('插件加载'), true);
+  assert.equal(line.includes('已调用'), true);
+});
+
 test('truncate never splits a surrogate pair and marks what it cut', () => {
   assert.equal(truncate('abc', 10), 'abc');
   assert.equal(truncate('abcdef', 3), 'abc…');
