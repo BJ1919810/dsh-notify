@@ -154,7 +154,15 @@ const linkSource = typeof args.link === 'string' && args.link !== '' ? resolve(a
 //
 // A local plugin needs `--link <dir>`; a plugin installed from npm or the market
 // is already in node_modules and needs nothing.
-if (linkSource !== '') {
+//
+// Skipped entirely when the bundle row already exists. Linking is there to make
+// a *new* row resolvable; on an enabled row it can only do harm, and the usual
+// case for running this twice is that the plugin is already fine. That case
+// also used to look like a failure: `pnpm install` materializes a `file:`
+// dependency as a real directory (it copies, it does not symlink), so the
+// "refusing to replace a real directory" guard fired on a perfectly healthy
+// install and exited non-zero. Reported by the user, who saw exactly that.
+if (linkSource !== '' && !enabled) {
   if (action !== 'enable') {
     process.stdout.write('note  --link is ignored when disabling\n');
   } else if (!existsSync(join(linkSource, 'package.json'))) {
@@ -170,10 +178,12 @@ if (linkSource !== '') {
     }
     if (existing !== null && existing.isDirectory() && !existing.isSymbolicLink()) {
       // A real directory could be a dependency someone meant to keep, so it is
-      // never deleted automatically.
+      // never deleted automatically. Keep the message but name the likely cause.
       process.stderr.write(
         `refusing to replace ${linkPath}: it is a real directory, not a link.\n` +
-          'Remove it yourself if it is stale, then run this again.\n',
+          'That is what `pnpm install` leaves behind for a `file:` dependency (it copies,\n' +
+          'it does not symlink). The package resolves, so this is only a problem if you\n' +
+          'wanted a live link to the source directory — then remove the directory first.\n',
       );
       process.exit(1);
     }
@@ -181,6 +191,11 @@ if (linkSource !== '') {
     symlinkSync(linkSource, linkPath, process.platform === 'win32' ? 'junction' : 'dir');
     process.stdout.write(`ok    linked node_modules/${name} -> ${linkSource}\n`);
   }
+} else if (linkSource !== '' && enabled) {
+  process.stdout.write(
+    `ok    "${name}" is already in dsh.profile.bundles, so no link is needed\n` +
+      '      (to refresh the code a local plugin runs, run `pnpm install` in the profile)\n',
+  );
 }
 
 if (enabled === (action === 'enable')) {
