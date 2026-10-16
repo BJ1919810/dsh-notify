@@ -113,12 +113,23 @@ node scripts/preview-toast.mjs   # 只弹一条，用来看真实排版
 
 ### 装进真实宿主
 
+**装一个插件要动 profile 里两个地方，它们被系统的不同部分读取**——只做一半会出现「插件在跑但界面上找不到」：
+
+| 写在哪里 | 谁读它 | 漏了会怎样 |
+| --- | --- | --- |
+| `dsh.profile.bundles` | 加载器（启动时合成） | 插件根本不运行 |
+| `dependencies` | **Settings → 插件 的「已安装」列表** | **插件在跑，但列表里看不到、没有开关** |
+
+两条命令（都要在**完全退出 DSH 之后**跑）：
+
 ```sh
-# 1) 完全退出 DSH（不是关窗口）
-# 2) 让插件作为 bundle 进入 profile
-node scripts/set-bundle-state.mjs --name dsh-notify --action enable
-# 3) 启动 DSH，随便跑一个任务
+# 1) 让它被加载
+node scripts/set-bundle-state.mjs --name dsh-notify --action enable --link <本仓库路径>
+# 2) 让它出现在插件列表里、可以开关
+node scripts/register-local-plugin.mjs --name dsh-notify --dir <本仓库路径>
 ```
+
+然后启动 DSH，随便跑一个任务。
 
 Windows 上没有 `node` 在 PATH 时用包装脚本（它会自己找 DSH 自带的那份）：
 
@@ -126,7 +137,11 @@ Windows 上没有 `node` 在 PATH 时用包装脚本（它会自己找 DSH 自�
 scripts\set-bundle-state.cmd --name dsh-notify --action enable
 ```
 
-撤销就是同一条命令加 `--action disable`。
+撤销：`set-bundle-state.mjs --action disable`，并把 `register-local-plugin.mjs` 写进 `dependencies` 的那一行删掉（它会留备份）。
+
+> 这个「只做一半」是我实际犯过的错：插件装好后通知一切正常，但用户在 **Settings → 插件** 里找不到它，
+> 因为那个列表是按 `dependencies` 列的。对照物是 `dsh-custom-instructions`——它能出现在列表里，
+> 正是因为它的 `dependencies` 里有 `file:` 声明。
 
 三个必须知道的约束，都是踩过的：
 
