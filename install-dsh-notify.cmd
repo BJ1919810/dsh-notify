@@ -1,77 +1,69 @@
 @echo off
-rem One-click local install / uninstall for dsh-notify.
+rem Install dsh-notify into the desktop profile -- both halves.
 rem
-rem Double-click this file with DSH QUIT (not just the window closed). A live
-rem host rewrites the profile from its in-memory composition, so an edit made
-rem while it is running is silently reverted.
+rem A plugin is "installed" in two places in the profile, and the system reads
+rem them for different reasons:
 rem
-rem What it does:
-rem   1. finds the Node that DSH itself ships (node is not on PATH here)
-rem   2. links this folder into the profile's node_modules
-rem   3. adds "dsh-notify" to the profile's dsh.profile.bundles -- the ONLY
-rem      correct way to load a new plugin; a bare "- id:" row in
-rem      cordis.patch.yml has no target and takes the whole boot down
-rem   4. backs up package.json and re-parses the result before writing
+rem   dsh.profile.bundles -> the loader composes it at boot (this is what runs it)
+rem   dependencies        -> Settings - Plugins lists it, with a toggle
+rem
+rem Doing only the first one gives a plugin that works but cannot be switched
+rem off from the UI. Both are done here.
+rem
+rem QUIT DEEPSEEK HARNESS FIRST (not just the window). A live host rewrites the
+rem profile from its in-memory composition, so an edit made while it runs is
+rem reverted -- and the scripts refuse to run in that case anyway.
 rem
 rem Undo: run this file with the argument:  remove
 rem
-rem This file is deliberately ASCII-only: a .cmd with Chinese comments renders
-rem as mojibake under the machine's GBK code page (chcp 936).
+rem ASCII only, CRLF line endings, no string building: a .cmd that violates any
+rem of those makes cmd.exe misparse the command line as commands.
 
 setlocal EnableExtensions
-set "HERE=%~dp0"
+set "HERE=%~dp0."
 set "ACTION=enable"
 if /I "%~1"=="remove" set "ACTION=disable"
 if /I "%~1"=="disable" set "ACTION=disable"
 
 set "NODE=%USERPROFILE%\.dsh\dsh-runtimes\dsh-primary-runtime\dependencies\node\bin\node.exe"
-set "SCRIPT=%HERE%scripts\set-bundle-state.mjs"
-set "PROFILE=%USERPROFILE%\.dsh\profiles\desktop"
-
-if not exist "%NODE%" (
-  echo.
-  echo   Could not find the Node that DSH ships at:
-  echo     %NODE%
-  echo   Run this instead with any node on PATH:
-  echo     node "%SCRIPT%" --name dsh-notify --action %ACTION%
-  echo.
-  pause
-  exit /b 2
-)
-if not exist "%SCRIPT%" (
-  echo.
-  echo   Missing %SCRIPT%
-  echo   Run this file from inside the dsh-notify folder.
-  echo.
-  pause
-  exit /b 2
-)
+if not exist "%NODE%" set "NODE=node"
 
 echo.
-echo   dsh-notify local %ACTION%
-echo   ================================
-echo   profile: %PROFILE%
+echo   dsh-notify install  ^(action: %ACTION%^)
+echo   ==========================================
+echo   plugin dir: %HERE%
 echo.
 
-rem --link: a name in dsh.profile.bundles is a promise that the loader can
-rem import it, so the package also has to be resolvable from the profile. The
-rem first version of this only wrote the bundles row, which left the boot
-rem unable to resolve the plugin.
-"%NODE%" "%SCRIPT%" --name dsh-notify --action %ACTION% --profile "%PROFILE%" --link "%HERE%."
-set "CODE=%ERRORLEVEL%"
-
-echo.
-if "%CODE%"=="0" (
-  if /I "%ACTION%"=="enable" (
-    echo   Done. Now START DeepSeek Harness and run any task --
-    echo   when the task really finishes, a Windows notification appears.
-    echo   In goal mode only the goal's own completion notifies, by design.
-  ) else (
-    echo   Done. dsh-notify removed from the profile.
-  )
+if /I "%ACTION%"=="enable" (
+  echo   [1/2] registering the dependency ^(makes it appear in Settings - Plugins^)
+  "%NODE%" "%HERE%\scripts\register-local-plugin.mjs" --name dsh-notify --dir "%HERE%"
+  if errorlevel 1 goto failed
+  echo.
+  echo   [2/2] enabling the bundle ^(makes the loader run it^)
+  "%NODE%" "%HERE%\scripts\set-bundle-state.mjs" --name dsh-notify --action enable --link "%HERE%"
+  if errorlevel 1 goto failed
 ) else (
-  echo   Nothing was changed ^(exit %CODE%^). Read the message above.
-  echo   The usual cause: DSH is still running. Quit it completely and retry.
+  echo   disabling the bundle
+  "%NODE%" "%HERE%\scripts\set-bundle-state.mjs" --name dsh-notify --action disable
+  if errorlevel 1 goto failed
+  echo.
+  echo   NOTE: the dependency row in profile package.json is left in place.
+  echo         Remove it by hand if the plugin should also leave the plugin list;
+  echo         register-local-plugin.mjs wrote a .bak-register-dsh_notify backup.
 )
+
+echo.
+echo   Done. Now START DeepSeek Harness.
+echo   The plugin should appear under Settings - Plugins with a toggle,
+echo   and a notification should arrive when a task really finishes.
 echo.
 pause
+exit /b 0
+
+:failed
+echo.
+echo   Nothing further was changed ^(the step above failed^).
+echo   The usual cause: DSH is still running. Quit it completely and retry.
+echo.
+pause
+exit /b 1

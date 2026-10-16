@@ -1,7 +1,19 @@
-# 仓库里所有文本文件都用 LF。
+# 仓库里绝大多数文本文件都用 LF。
 # Windows 上 git 默认的 autocrlf 会把 .ps1 / .js 换成 CRLF，
 # 那会让这两类文件在别的平台看起来整文件被改过。
 * text=auto eol=lf
+
+# 例外：Windows 批处理必须是 CRLF，没有商量余地。
+#
+# cmd.exe 用 LF 换行的 .cmd 会静默解析失败——它会把参数当成命令去执行，报
+# 「'xxx' 不是内部或外部命令」，而且有时候连第一行都不报，直接什么也不做。
+# 这个仓库里的 install-dsh-notify.cmd / set-bundle-state.cmd 就是双击运行的，
+# 所以它们在磁盘上必须始终是 CRLF。
+#
+# 存进 git 时仍然归一成 LF（eol=crlf 表示「检出的工作区用 CRLF」），
+# 这样在 Linux/macOS 上克隆也不会把 CRLF 带进仓库历史。
+*.cmd text eol=crlf
+*.bat text eol=crlf
 
 *.png binary
 *.ico binary
