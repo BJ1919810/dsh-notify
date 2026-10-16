@@ -240,8 +240,27 @@ test('a failure carries its message into the body', async () => {
   host.dispose();
 });
 
+/**
+ * A goal view shaped the way the host actually returns one.
+ *
+ * `@deepseek-ai/dsh-goal`'s `GoalService.view()` spreads the goal flat, so the
+ * phase lives at `view.phase` and there is no nested `view.goal.status`. These
+ * fixtures previously used `{ goal: { status } }`, a shape no host produces: the
+ * assertions passed green while the real integration read `undefined` and
+ * announced every round of a running goal. Keep this faithful.
+ */
+const goalView = (phase) => ({
+  id: 'goal-1',
+  revision: 1,
+  objective: '修复登录崩溃',
+  phase,
+  maxGoalRounds: 256,
+  roundsStarted: 1,
+  activation: 'armed',
+});
+
 test('a goal suppresses its own rounds and announces its settlement instead', async () => {
-  const goals = new Map([[SESSION_ID, { goal: { status: 'active' } }]]);
+  const goals = new Map([[SESSION_ID, goalView('active')]]);
   const host = fakeHost({ goals });
   const transport = recordingTransport();
   apply(host, { settleDelayMs: settle }, transport);
@@ -257,7 +276,7 @@ test('a goal suppresses its own rounds and announces its settlement instead', as
   assert.deepEqual(transport.shown, [], 'rounds of a live goal stay silent');
 
   // The goal is met; the round driver stops and the agent goes idle.
-  goals.set(SESSION_ID, { goal: { status: 'complete' } });
+  goals.set(SESSION_ID, goalView('complete'));
   host.turnEnd(99, { kind: 'completed' });
   host.status('idle');
   await tick(settle + 20);
@@ -269,7 +288,7 @@ test('a goal suppresses its own rounds and announces its settlement instead', as
 });
 
 test('a running goal that stops for a person is announced', async () => {
-  const goals = new Map([[SESSION_ID, { goal: { status: 'active' } }]]);
+  const goals = new Map([[SESSION_ID, goalView('active')]]);
   const host = fakeHost({ goals });
   const transport = recordingTransport();
   apply(host, { settleDelayMs: settle }, transport);
