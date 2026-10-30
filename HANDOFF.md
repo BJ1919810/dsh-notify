@@ -1,14 +1,14 @@
 # 交接说明：dsh-notify
 
 这份文档写给**另一个对话**——`dsh-notify` 的初版是在那里做的（工作区
-`C:\Users\Administrator\Documents\deepseek-harness\default-workspace`，
-会话 `session-48cb01ac-8a5b-4712-bd63-e40933f1f469`）。
+`<your-workspace>`，
+会话 `<session-id>`）。
 
-另一个会话（`session-c29e24fc-5564-4914-968f-a0291f3dd37e`）已经把这个插件**做完并
+另一个会话（`<session-id>`）已经把这个插件**做完并
 提交**，同时在真实环境里踩通了本地安装路径。这份文档说明**那边做了什么、哪些已经
 验证过、哪些还没做**，避免重复劳动，也避免重踩同样的坑。
 
-仓库位置：`C:\Users\Administrator\Documents\deepseek-harness\default-workspace\dsh-notify`
+仓库位置：`<your-workspace>\dsh-notify`
 （已 `git init`，5 次提交，工作区干净）
 
 ---
@@ -190,7 +190,7 @@ Unexpected token ', {'   "name"... is not valid JSON
 ```sh
 # 1) 完全退出 DSH（关窗口不算，托盘也要退）
 # 2) 让插件作为 bundle 进入 profile
-cd C:\Users\Administrator\Documents\deepseek-harness\default-workspace\dsh-notify
+cd <your-workspace>\dsh-notify
 scripts\set-bundle-state.cmd --name dsh-notify --action enable
 # 3) 启动 DSH，随便跑一个任务；任务真正结束时会弹通知
 ```

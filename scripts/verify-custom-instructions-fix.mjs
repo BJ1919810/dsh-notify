@@ -23,10 +23,13 @@
 import { pathToFileURL } from 'node:url';
 import { resolve } from 'node:path';
 
-const modulePath = resolve(
-  process.argv[2] ??
-    'C:\\Users\\Administrator\\Documents\\deepseek-harness\\default-workspace\\dsh-custom-instructions\\lib\\index.js',
-);
+if (process.argv[2] === undefined) {
+  throw new Error(
+    'usage: node scripts/verify-custom-instructions-fix.mjs <path/to/dsh-custom-instructions/lib/index.js>',
+  );
+}
+
+const modulePath = resolve(process.argv[2]);
 
 const mod = await import(pathToFileURL(modulePath).href);
 

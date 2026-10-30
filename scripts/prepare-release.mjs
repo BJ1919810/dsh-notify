@@ -55,6 +55,7 @@ const base = `https://github.com/${owner}/${repo}`;
 
 const packagePath = join(root, 'package.json');
 const manifest = JSON.parse(readFileSync(packagePath, 'utf8'));
+const pkgVersion = manifest.version;
 manifest.repository = { type: 'git', url: `git+${base}.git` };
 manifest.homepage = `${base}#readme`;
 manifest.bugs = { url: `${base}/issues` };
@@ -149,7 +150,7 @@ process.stdout.write(`release/awesome-dsh-plugin/${entryName}\n`);
 
 process.stdout.write(
   '\nNext:\n' +
-    `  1. git init && git add -A && git commit -m "dsh-notify 0.1.0"\n` +
+    `  1. git init && git add -A && git commit -m "dsh-notify ${pkgVersion}"\n` +
     `     git remote add origin ${base}.git && git push -u origin main\n` +
     '  2. npm run release:check    # everything the catalog CI will check\n' +
     '  3. uncomment the tarball/npm note in the entry if you publish to npm\n' +

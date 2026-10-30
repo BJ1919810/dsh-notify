@@ -14,7 +14,7 @@
  * dsh-custom-instructions, …) has both.
  *
  *   node scripts/register-local-plugin.mjs --name dsh-notify \
- *        --dir C:/Users/Administrator/Documents/deepseek-harness/default-workspace/dsh-notify
+ *        --dir <plugin-dir>
  *
  * Refuses to run while DSH is up: a live host rewrites the profile's
  * package.json from memory, so the edit would look applied and then vanish.

@@ -32,8 +32,8 @@ if ($PSVersionTable.PSVersion.Major -ge 7) {
   exit 1
 }
 
-$profileDir = "C:\Users\Administrator\.dsh\profiles\desktop"
-$pluginDir  = "C:\Users\Administrator\Documents\deepseek-harness\default-workspace\dsh-notify"
+$profileDir = Join-Path $env:USERPROFILE '.dsh\profiles\desktop'
+$pluginDir  = Split-Path -Parent $PSScriptRoot
 $target     = Join-Path $profileDir "node_modules\dsh-notify"
 $manifest   = Join-Path $profileDir "package.json"
 $backup     = Join-Path $profileDir "package.json.bak-dshnotify"

@@ -17,7 +17,7 @@ if ($PSVersionTable.PSVersion.Major -ge 7) {
   exit 1
 }
 
-$profileDir = "C:\Users\Administrator\.dsh\profiles\desktop"
+$profileDir = Join-Path $env:USERPROFILE '.dsh\profiles\desktop'
 $target     = Join-Path $profileDir "node_modules\dsh-notify"
 $manifest   = Join-Path $profileDir "package.json"
 $backup     = Join-Path $profileDir "package.json.bak-dshnotify"
