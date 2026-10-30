@@ -24,6 +24,9 @@
     ".": {
       "default": "./lib/index.js"
     },
+    "./client": {
+      "default": "./lib/client.js"
+    },
     "./package.json": "./package.json"
   },
   "files": [
@@ -32,7 +35,10 @@
     "README.md",
     "LICENSE",
     "screenshots.json",
-    "assets"
+    "assets",
+    "scripts/install-activation.ps1",
+    "scripts/uninstall-activation.ps1",
+    "scripts/verify-activation.mjs"
   ],
   "scripts": {
     "link:peers": "node scripts/link-peers.mjs",
@@ -40,7 +46,7 @@
     "test": "node --test \"test/*.test.js\"",
     "smoke": "node scripts/smoke-toast.mjs",
     "preview": "node scripts/preview-toast.mjs",
-    "check": "node --check lib/index.js && node --check lib/format.js && node --check lib/config.js && node --check lib/powershell-toast.js && node --test \"test/*.test.js\"",
+    "check": "node --check lib/index.js && node --check lib/format.js && node --check lib/config.js && node --check lib/powershell-toast.js && node --check lib/activation.js && node --check lib/client.js && node --test \"test/*.test.js\"",
     "prepare-release": "node scripts/prepare-release.mjs",
     "release:check": "node scripts/release-check.mjs",
     "prepack": "node scripts/release-check.mjs"
@@ -56,6 +62,9 @@
   "dsh": {
     "bundle": {
       "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web"
     },
     "compatibility": {
       "dshReleases": {

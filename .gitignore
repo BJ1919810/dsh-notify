@@ -2,3 +2,9 @@ node_modules/
 *.tgz
 *.log
 .DS_Store
+
+# Written by scripts/install-activation.ps1 for this machine (scheme + port).
+assets/activation.json
+
+# Compiled from scripts/focus-window.cs by scripts/install-activation.ps1.
+assets/focus.exe

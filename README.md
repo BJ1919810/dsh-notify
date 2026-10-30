@@ -61,6 +61,9 @@ dsh plugin --profile <你的 profile> add dsh-notify
 | `sound` | `kind` | `kind`：按结果自动选（完成用 `Default`，出错用 `Reminder`）；`silent`：静音；也可以填具体的 WinRT 提示音名（`Reminder`／`IM`／`Mail`／`SMS`／`Alarm`…）。 |
 | `appId` | 空 | 可选的 AppUserModelID（例如某个应用快捷方式的 AUMID）。留空时按 `DSH_APP_USER_MODEL_ID` 环境变量 → Windows PowerShell 的顺序回退。 |
 | `debug` | `false` | 把每一次决策写进宿主日志（收到哪个回合结束、为什么没通知）。排查「该弹没弹」时打开它。 |
+| `activate` | `false` | 让通知可点击（开回环接收端 + 通知携带 `dshnotify:<id>`）。需要先装 URI 协议，见下面「点击通知跳到对应会话」。 |
+| `activationPort` | `5178` | 接收端端口，客户端半按同一默认值轮询，改了两边要一致。 |
+| `activationScheme` | `dshnotify` | 通知里携带的 URI 协议名，必须与 `install-activation.ps1` 注册的一致。 |
 
 ### 触发点为什么是 `turn/end` 而不是 `idle`
 
@@ -73,6 +76,70 @@ dsh plugin --profile <你的 profile> add dsh-notify
 - 延迟窗口内又来了 `turn/end` → 重新计时（把连续回合合并成一条）
 
 这样**两个事件的先后顺序不再影响正确性**，`test/plugin.test.js` 里有两条测试专门钉住这件事（含「宿主从不报 idle」的情形）。
+
+## 点击通知跳到对应会话（可选，默认关闭）
+
+Windows 通知默认是「只能看」的：它由本插件的子进程用 WinRT toast API 弹出，点击事件回不到 DSH 的宿主进程。DSH 自己也没有可用的 Windows 深链——它的 `dsh://open` 处理器挂在 Electron 的 `open-url` 上（macOS 专有事件），Windows 走 `second-instance` 且不恢复窗口。所以「点了就跳」必须自己补三块：
+
+| 块 | 谁做 |
+| --- | --- |
+| ① 点击能落到我们手里 | 通知携带 `dshnotify:<会话id>` 激活 URI；`scripts/install-activation.ps1` 在 **HKCU** 注册这个协议 → `assets/activate.vbs` |
+| ② 点击时手上有会话 id | 上面那个 URI 里就带着；`activate.ps1` 先用 Win32 把 DSH 窗口恢复并置前，再把 id POST 给宿主里的回环接收端 |
+| ③ GUI 能按 id 打开会话 | 客户端半 `lib/client.js` 每秒轮询 `127.0.0.1:5178/pending`，拿到 id 后调 `ctx.uiWorkspace.openSession(id)` |
+
+前两块是宿主半（`lib/activation.js` + `assets/` + `scripts/install-activation.*`），第三块是浏览器半（`lib/client.js`，随插件包一起被宿主扫到并通过 `/plugins` 提供）。
+
+**安装**（一次性，不需要管理员权限）：
+
+```powershell
+# 1) 注册 URI 协议（写 HKCU\Software\Classes\dshnotify，并写 assets\activation.json）
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\install-activation.ps1
+# 2) 在插件配置里打开接收端
+#    activate: true      # 必填，默认 false
+#    activationPort: 5178
+#    activationScheme: dshnotify
+# 3) 重启 DSH（宿主半的代码与配置不热重载）
+```
+
+撤销：`powershell -NoProfile -ExecutionPolicy Bypass -File scripts\uninstall-activation.ps1`，再把 `activate` 关掉。不装协议也能正常用插件——只是通知点不动，和以前一样。
+
+**它做不到的事（写清楚，别指望）**：
+
+- **页面得开着**：第③块跑在 Web GUI 里；DSH 窗口完全关掉（只剩后端）时，点击只会把窗口叫回来，会话不会自动打开。
+- **一次点击只开一个会话，且只由「人看得见的那一面」开**：`GET /pending` 读走即清；但 DSH 同一个 origin（`dsh-app://app`）下会挂**不止一套 client 树**（后台 WebContentsView 也会加载插件并轮询）。所以客户端半按「页面可见 **或** 最近 15 秒内拿到过焦点」判定自己能不能取，不能取的树只读 `GET /pending?peek=1`（非消费）当观察者。否则点击可能被后台树消费掉，`openSession` 发生在没人看的地方——这正是我们踩过的坑（表现：`openSession` 不报错、界面不动）。
+- **已归档 / 空会话点了没有观感变化**：DSH 自己会立刻清掉指向已归档会话的 selection，界面留在空白新会话；会话本身只有几百字节日志（没内容）时同理。这不是插件坏了。
+- **`GET /peek` 是排查口**：非消费，返回 `{pending, recent[最近 20 条请求（method/path/query/origin/referer/sec-fetch-site/UA）]}`，用来回答「谁在轮询 / 谁取走了点击」。
+- **接收端只认回环**：socket 绑 `127.0.0.1`，并且逐请求校验对端地址；任何本机进程都能发 `/activate`（session id 会被校验成合法 id），这是本机工具的正常信任边界。
+- **端口被占就降级**：5178 被占用时只记一条 warning、通知照发，只是通知不带激活 URI（不会变成一条点了没反应的假链接）。
+
+**点击延迟（实测，改之前别把顺序调回去）**：
+
+| 阶段 | 做法 | 实测 |
+| --- | --- | --- |
+| URI → 接收端拿到 id | `activate.vbs` 用 WinHttp GET `/activate`（不启 PowerShell） | **~170–220 ms** |
+| 抬窗口 | `assetsocus.exe`（安装时编译的 ~5 KB 助手：枚举窗口 → ShowWindow(SW_RESTORE) + SetForegroundWindow） | ~320 ms（含进程启动） |
+| 接收端 → 页面取走 id | 抬窗口触发 focus 事件 → 客户端立刻补拉（否则 400 ms 轮询） | ~540 ms（最小化状态实测） |
+| 取走 id → 主视图切换 | `ctx.uiWorkspace.openSession(id)` 同步改 selection/mainReference | 一帧内 |
+
+端到端实测（最小化窗口，`start dshnotify:<id>` 真链路）：launch→POST **178 ms**、POST→claim **539 ms**、合计 **~0.72 s**，结束后窗口 `iconic=False` 且标题已是目标会话。改前（PowerShell 抬窗口 + 先抬后 POST + 1 s 轮询）是 **~3.0 s** 且中途闪一下旧会话。
+
+⇒ 关键顺序是**先 POST、再抬窗口**：抬窗口会触发页面的 focus 事件 → 客户端**立刻**补拉 → 窗口出现在屏幕上时已经是目标会话。反过来（先抬窗口再 POST）会先显示旧会话约 1 秒再跳，观感很差。PowerShell（`activate.ps1`）现在只是兜底：它起一次要 ~2.4 秒（冷启动 + 编译 P/Invoke + Get-Process），只有 `focus.exe` 与 `AppActivate` 都失败、或首发的 POST 失败时才走。`activate.vbs` 还顺手修完了自己之前被 PS 接管的那条慢路。
+
+**抬窗口的坑（第三次踩到，别再用旧办法）**：⛔ **绝不要**对「应用自己隐藏的窗口」（托盘态）调用 `ShowWindow(SW_SHOW)` —— Electron 仍认为窗口是隐藏的，Chromium 约 250 ms 后又把它藏回去，观感就是「点一下窗口直接关掉」。正确做法分两种状态：
+
+| 状态 | 做法 | 实测 |
+| --- | --- | --- |
+| 可见（后排/最小化） | `SW_RESTORE`（最小化时）+ `SetForegroundWindow` | ~0.7 s 出现并前置 |
+| 隐藏（托盘） | 用 `explorer.exe "<应用 exe>"` 请求 shell 激活已在运行的应用 → 触发 Electron 自己的 `focusPrimaryWindow()`（`window.show(); window.focus()`），等它可见后再 `SetForegroundWindow` | ~1.4 s |
+
+⚠️ 只有 **explorer 激活**能触发这条 supported 路径：`CreateProcess`/`ShellExecute` 直接起 exe 会静默退出、什么都不做；`dsh://open` 这条应用自注册的协议在本 build 里会以 exit 1 结束（第二实例在 `second-instance` 之前就挂了），也不能用。
+
+**窗口匹配的坑（这次踩到的）**：抬窗口不能靠 `Process.MainWindowHandle` —— DSH 被最小化时它实测返回 **0**（同一个 pid 名下还有多个无标题的隐藏窗口，谁先被选中就抬谁，结果就是「点了没反应」）。`focus.exe` 改成 `EnumWindows` + `GetWindowTextLength>0` + 标题含 "DeepSeek Harness" 优先、进程名兜底；无标题窗口一律跳过。判据：最小化后跑 `focus.exe` 应 `exit_code=0` 且 `IsIconic=false`。
+
+**实现注意（踩过的雷，改之前先读）**：
+
+- 两半都**不要用 `ctx.effect` 管清理**：插件被重载时 Cordis 会在未激活的 context 上重建 effect 并抛 `cannot create effect on inactive context` —— 宿主半会直接把桌面端带崩，客户端半会让这条 row `import failed`（而且 DSH 把 web boot 失败当启动失败，同样会退出）。用 `ctx.on('dispose', cleanup)`。
+- 客户端 bundle 改动**必须重启桌面端**；不要在 DSH 运行中反复改它——运行中改文件会触发 HMR 重载（可见窗口那条 row 常常就此死掉，只剩后台树在轮询），下一次启动还可能撞上一次性 `import failed`。部署顺序：改文件 → 立刻重启 → 再用。
 
 ## 环境要求
 
@@ -89,8 +156,10 @@ dsh plugin --profile <你的 profile> add dsh-notify
 | 文件 | 职责 |
 | --- | --- |
 | `lib/format.js` | 纯函数：结束原因映射成通知类型、Markdown 压成一行、截断、拼出最终文案。**不碰任何 I/O**，所以规则本身可以被测试读清楚。 |
-| `lib/powershell-toast.js` | 只负责把一段标题/正文变成一条真正弹出来的 Windows 通知。 |
+| `lib/powershell-toast.js` | 只负责把一段标题/正文变成一条真正弹出来的 Windows 通知（点击目标 `launch` 也在这里进 XML）。 |
 | `lib/index.js` | 只有一个职责：接事件。也就是上面那套「回合结束只记录、agent 空闲才通知」的接线。 |
+| `lib/activation.js` | 点击的接收端：只回环的 HTTP 服务，`POST/GET /activate?s=<id>` 记下待打开会话，`GET /pending` 读走即清。 |
+| `lib/client.js` | 客户端半：轮询 `/pending`，调 `ctx.uiWorkspace.openSession()` 把对应会话切出来。 |
 | `lib/config.js` | 把配置收敛成可依赖的值——手写进 profile 的非法值也要能兜住。 |
 
 几点实现上的取舍：
@@ -104,10 +173,13 @@ dsh plugin --profile <你的 profile> add dsh-notify
 
 ```sh
 npm run link:peers   # 把宿主正在用的 schemastery 链到 node_modules（插件不 import cordis）
-npm test             # 36 项：决策规则 + 事件接线（用注入的假传输，不会真弹通知）
+npm test             # 76 项：决策规则 + 事件接线（用注入的假传输，不会真弹通知）
 npm run smoke        # 需要真实桌面：校验 Config schema，然后真弹一条通知
 node scripts/preview-toast.mjs   # 只弹一条，用来看真实排版
+node scripts/verify-activation.mjs   # 不点通知也能验点击链：ps1 / vbs / Windows ShellExecute 三档 + 一条注入负向对照
 ```
+
+`verify-activation.mjs` 会自己占住 `activationPort`，所以**跑之前要先退出 DSH**（开着 activate 的宿主占着同一个端口）。它验到「会话 id 送到接收端」为止；之后那一跳（客户端半 → `openSession`）只能靠真点一次通知来验。
 
 `test/` 里没有任何一项会真的弹通知：`apply()` 的第三个参数是注入的传输层，测试传一个记录用的假实现。
 
